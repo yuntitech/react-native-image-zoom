@@ -36,7 +36,7 @@ export default class ImageViewer extends React.Component<Props, State> {
   private animatedPositionY = new Animated.Value(0);
 
   // 缩放大小
-  private scale = 1;
+  public scale = 1;
   private animatedScale = new Animated.Value(1);
   private zoomLastDistance: number | null = null;
   private zoomCurrentDistance = 0;
@@ -83,11 +83,21 @@ export default class ImageViewer extends React.Component<Props, State> {
   // 是否在左右滑
   private isHorizontalWrap = false;
 
+  // 上一次的滑动方向
+  private lastDireaction = "unknown"
+
   public componentWillMount() {
     this.imagePanResponder = PanResponder.create({
       // 要求成为响应者：
       onStartShouldSetPanResponder: () => isMobile(),
       onPanResponderTerminationRequest: () => false,
+      onMoveShouldSetPanResponderCapture: (evt, gestureState) => {
+        if (this.props.onMoveShouldSetPanResponderCapture) {
+          return this.props.onMoveShouldSetPanResponderCapture(evt, gestureState)
+        } else {
+          return false
+        }
+      },
 
       onPanResponderGrant: evt => {
         // 开始手势操作
@@ -100,6 +110,7 @@ export default class ImageViewer extends React.Component<Props, State> {
         this.isDoubleClick = false;
         this.isLongPress = false;
         this.isHorizontalWrap = false;
+        this.lastDireaction = "unknown"
 
         // 任何手势开始，都清空单击计时器
         if (this.singleClickTimeout) {
@@ -167,7 +178,9 @@ export default class ImageViewer extends React.Component<Props, State> {
               this.positionY = ((this.props.cropHeight / 2 - this.doubleClickY) * diffScale) / this.scale;
             }
 
-            this.imageDidMove('centerOn');
+            // this.imageDidMove('centerOn');
+            this.imageDidMove("centerOn", this.horizontalWholeOuterCounter, "unknown", true, evt.nativeEvent.touches.length);
+
 
             Animated.parallel([
               Animated.timing(this.animatedScale, {
@@ -200,6 +213,17 @@ export default class ImageViewer extends React.Component<Props, State> {
           if (this.lastPositionX === null) {
             diffX = 0;
           }
+
+          // 设置方向
+          let direction = this.lastDireaction;
+          if (diffX > 1) {
+            direction = "left";
+           } else if (diffX < -1) {
+            direction = "right";
+           }
+          const directionChanged = direction !== this.lastDireaction
+          this.lastDireaction = direction;
+
           // y 位移
           let diffY = gestureState.dy - (this.lastPositionY || 0);
           if (this.lastPositionY === null) {
@@ -356,6 +380,8 @@ export default class ImageViewer extends React.Component<Props, State> {
               }
             }
           }
+          this.imageDidMove("onPanResponderMove-singleFinger", this.horizontalWholeOuterCounter, direction, directionChanged, evt.nativeEvent.touches.length)
+
         } else {
           // 多个手指的情况
           // 取消长按状态
@@ -420,9 +446,8 @@ export default class ImageViewer extends React.Component<Props, State> {
             }
             this.zoomLastDistance = this.zoomCurrentDistance;
           }
+          this.imageDidMove("onPanResponderMove-doubleFinger", this.horizontalWholeOuterCounter, "unknown", true, evt.nativeEvent.touches.length)
         }
-
-        this.imageDidMove('onPanResponderMove');
       },
       onPanResponderRelease: (evt, gestureState) => {
         // 取消长按
@@ -559,8 +584,7 @@ export default class ImageViewer extends React.Component<Props, State> {
 
     // swipeDown 溢出量置空
     this.swipeDownOffset = 0;
-
-    this.imageDidMove('onPanResponderRelease');
+    this.imageDidMove("onPanResponderRelease", this.horizontalWholeOuterCounter, "unknown", true, 0)
   };
 
   public componentDidMount() {
@@ -579,15 +603,20 @@ export default class ImageViewer extends React.Component<Props, State> {
     }
   }
 
-  public imageDidMove(type: string) {
+ 
+  public imageDidMove(type: string, offsetX: number, dir: string, dirChanged: boolean, count: number) {
     if (this.props.onMove) {
       this.props.onMove({
         type,
         positionX: this.positionX,
         positionY: this.positionY,
         scale: this.scale,
-        zoomCurrentDistance: this.zoomCurrentDistance
-      });
+        zoomCurrentDistance: this.zoomCurrentDistance,
+        horizontalWholeOuterCounter: offsetX,
+        direction: dir,
+        directionChanged: dirChanged,
+        touchCount: count
+      })
     }
   }
 
@@ -617,7 +646,7 @@ export default class ImageViewer extends React.Component<Props, State> {
         duration
       })
     ]).start(() => {
-      this.imageDidMove('centerOn');
+      this.imageDidMove("centerOn", this.horizontalWholeOuterCounter, "unknown", true, 0)
     });
   }
 
@@ -641,6 +670,33 @@ export default class ImageViewer extends React.Component<Props, State> {
     this.positionY = 0;
     this.animatedPositionY.setValue(this.positionY);
   }
+
+  public resetWithAnimate(duration: number = 800) {
+    this.scale = 1
+    this.positionX = 0
+    this.positionY = 0
+    Animated.parallel([
+      Animated.timing(this.animatedScale, {
+        toValue: this.scale,
+        duration
+      }),
+      Animated.timing(this.animatedPositionX, {
+        toValue: this.positionX,
+        duration
+      }),
+      Animated.timing(this.animatedPositionY, {
+        toValue: this.positionY,
+        duration
+      })
+    ]).start(() => {
+      this.animatedScale.setValue(this.scale)
+      this.animatedPositionX.setValue(this.positionX)
+      this.animatedPositionY.setValue(this.positionY)
+    })
+  }
+
+  public currentScale = () => this.scale
+
 
   public render() {
     const animateConf = {

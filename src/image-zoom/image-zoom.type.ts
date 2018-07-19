@@ -8,11 +8,15 @@ export interface ICenterOn {
 }
 
 interface IOnMove {
-  type: string;
-  positionX: number;
-  positionY: number;
-  scale: number;
-  zoomCurrentDistance: number;
+  type: string
+  positionX: number
+  positionY: number
+  scale: number
+  zoomCurrentDistance: number
+  horizontalWholeOuterCounter: number
+  direction: string
+  directionChanged: boolean
+  touchCount: number
 }
 
 export class Props {
@@ -162,6 +166,9 @@ export class Props {
   public onSwipeDown?: () => void = () => {
     //
   };
+
+  onMoveShouldSetPanResponderCapture?: (e: GestureResponderEvent, gestureState: PanResponderGestureState) => boolean;
+
 }
 
 export class State {
