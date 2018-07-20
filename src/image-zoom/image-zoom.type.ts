@@ -1,4 +1,4 @@
-import { ViewStyle } from 'react-native';
+import { ViewStyle, GestureResponderEvent, PanResponderGestureState } from 'react-native';
 
 export interface ICenterOn {
   x: number;
