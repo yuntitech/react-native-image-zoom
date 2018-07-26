@@ -7,7 +7,8 @@ import {
   Platform,
   PlatformOSType,
   StyleSheet,
-  View
+  View,
+  PanResponderGestureState
 } from 'react-native';
 import styles from './image-zoom.style';
 import { ICenterOn, Props, State } from './image-zoom.type';
@@ -303,7 +304,7 @@ export default class ImageViewer extends React.Component<Props, State> {
 
                 // 但是横向不能出现黑边
                 // 横向能容忍的绝对值
-                const horizontalMax = (this.props.imageWidth * this.scale - this.props.cropWidth) / 2 / this.scale;
+                const horizontalMax = this.calculateScrollContent(true) 
                 if (this.positionX < -horizontalMax) {
                   // 超越了左边临界点，还在继续向左移动
                   this.positionX = -horizontalMax;
@@ -479,14 +480,116 @@ export default class ImageViewer extends React.Component<Props, State> {
           if (this.props.responderRelease) {
             this.props.responderRelease(gestureState.vx, this.scale);
           }
-
-          this.panResponderReleaseResolve();
+          this.panResponderReleaseResolve(); 
+          if (this.props.useDecayScroll) {
+            this.decayScroll(gestureState)
+          }
         }
       },
       onPanResponderTerminate: () => {
         //
       }
     });
+  }
+
+  private decayScroll = (gestureState: PanResponderGestureState) => {
+    if (this.scale == 1) {
+      return;
+    }
+    const verticalMax = this.calculateScrollContent(false);
+    const horizontalMax = this.calculateScrollContent(true);
+    Animated.parallel(
+      [
+        Animated.decay(this.animatedPositionX, {
+          velocity: gestureState.vx
+        }),
+        Animated.decay(this.animatedPositionY, {
+          velocity: gestureState.vy
+        })
+      ],
+      { stopTogether: true }
+    ).start(() => {
+      this.stopAnimationAndRemoveListener(true, true);
+    });
+
+    this.animatedPositionX.addListener(state => {
+      this.positionX = state.value;
+      if (state.value > horizontalMax) {
+        this.stopDecayAnimate(horizontalMax, true);
+      } else if (state.value < -horizontalMax) {
+        this.stopDecayAnimate(-horizontalMax, true);
+      }
+    });
+
+    this.animatedPositionY.addListener(state => {
+      this.positionY = state.value;
+      if (state.value > verticalMax) {
+        this.stopDecayAnimate(verticalMax, false);
+      } else if (state.value < -verticalMax) {
+        this.stopDecayAnimate(-verticalMax, false);
+      }
+    });
+  };
+
+  private stopDecayAnimate = (position: number, horizontal: boolean) => {
+    this.stopAnimationAndRemoveListener(horizontal, !horizontal);
+    let p = position > 0  ? position - 5 : position + 5
+    if (horizontal) {
+      this.positionX = p;
+    } else {
+      this.positionY = p;
+    }
+    Animated.parallel(
+      [
+        Animated.spring(this.animatedPositionX, {
+          toValue: this.positionX
+        }),
+        Animated.spring(this.animatedPositionY, {
+          toValue: this.positionY
+        })
+      ],
+      { stopTogether: false }
+    ).start();
+  };
+
+  private calculateScrollContent = (horizontal: boolean): number => {
+    if (horizontal) {
+      return (
+        (this.props.imageWidth * this.scale -
+          this.props.cropWidth) /
+        2 /
+        this.scale
+      );
+    } else {
+      return (
+        (this.props.imageHeight * this.scale -
+          this.props.cropHeight) /
+        2 /
+        this.scale
+      );
+    }
+  }
+
+  private stopAnimationAndRemoveListener = (
+    horizontal: boolean = false,
+    vertical: boolean = false
+  ) => {
+    const removeX = () => {
+      this.animatedPositionX.stopAnimation();
+      this.animatedPositionX.removeAllListeners();
+    };
+    const removeY = () => {
+      this.animatedPositionY.stopAnimation();
+      this.animatedPositionY.removeAllListeners();
+    };
+    if (horizontal && !vertical) {
+      removeX();
+    } else if (!horizontal && vertical) {
+      removeY();
+    } else {
+      removeX();
+      removeY();
+    }
   }
 
   public resetScale = () => {
@@ -539,7 +642,7 @@ export default class ImageViewer extends React.Component<Props, State> {
     // 如果图片高度大于盒子高度，纵向不能出现黑边
     if (this.props.imageHeight * this.scale > this.props.cropHeight) {
       // 纵向能容忍的绝对值
-      const verticalMax = (this.props.imageHeight * this.scale - this.props.cropHeight) / 2 / this.scale;
+      const verticalMax = this.calculateScrollContent(false)
       if (this.positionY < -verticalMax) {
         this.positionY = -verticalMax;
       } else if (this.positionY > verticalMax) {
@@ -553,7 +656,7 @@ export default class ImageViewer extends React.Component<Props, State> {
 
     if (this.props.imageWidth * this.scale > this.props.cropWidth) {
       // 纵向能容忍的绝对值
-      const horizontalMax = (this.props.imageWidth * this.scale - this.props.cropWidth) / 2 / this.scale;
+      const horizontalMax = this.calculateScrollContent(true)
       if (this.positionX < -horizontalMax) {
         this.positionX = -horizontalMax;
       } else if (this.positionX > horizontalMax) {

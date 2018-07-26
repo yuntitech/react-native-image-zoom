@@ -167,7 +167,13 @@ export class Props {
     //
   };
 
-  onMoveShouldSetPanResponderCapture?: (e: GestureResponderEvent, gestureState: PanResponderGestureState) => boolean;
+  
+  public onMoveShouldSetPanResponderCapture?: (e: GestureResponderEvent, gestureState: PanResponderGestureState) => boolean;
+
+  /**
+   * 松手后是否有惯性
+   */
+  public useDecayScroll: boolean = false
 
 }
 
