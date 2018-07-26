@@ -1,4 +1,4 @@
-import { ViewStyle, GestureResponderEvent, PanResponderGestureState } from 'react-native';
+import { GestureResponderEvent, PanResponderGestureState, ViewStyle } from 'react-native';
 
 export interface ICenterOn {
   x: number;
@@ -104,6 +104,16 @@ export class Props {
   public maxScale?: number = 10;
 
   /**
+   * 是否拦截滑动事件
+   */
+  public onMoveShouldSetPanResponderCapture?: (e: GestureResponderEvent, gestureState: PanResponderGestureState) => boolean;
+
+  /**
+   * 松手后是否有惯性
+   */
+  public useDecayScroll: boolean = false
+
+  /**
    * 单击的回调
    */
   public onClick?: () => void = () => {
@@ -166,14 +176,6 @@ export class Props {
   public onSwipeDown?: () => void = () => {
     //
   };
-
-  
-  public onMoveShouldSetPanResponderCapture?: (e: GestureResponderEvent, gestureState: PanResponderGestureState) => boolean;
-
-  /**
-   * 松手后是否有惯性
-   */
-  public useDecayScroll: boolean = false
 
 }
 

@@ -3,12 +3,12 @@ import {
   Animated,
   LayoutChangeEvent,
   PanResponder,
+  PanResponderGestureState,
   PanResponderInstance,
   Platform,
   PlatformOSType,
   StyleSheet,
   View,
-  PanResponderGestureState
 } from 'react-native';
 import styles from './image-zoom.style';
 import { ICenterOn, Props, State } from './image-zoom.type';
@@ -25,6 +25,8 @@ const isMobile = () => {
 export default class ImageViewer extends React.Component<Props, State> {
   public static defaultProps = new Props();
   public state = new State();
+   // 缩放大小
+  public scale = 1;
 
   // 上次/当前/动画 x 位移
   private lastPositionX: number | null = null;
@@ -36,8 +38,6 @@ export default class ImageViewer extends React.Component<Props, State> {
   private positionY = 0;
   private animatedPositionY = new Animated.Value(0);
 
-  // 缩放大小
-  public scale = 1;
   private animatedScale = new Animated.Value(1);
   private zoomLastDistance: number | null = null;
   private zoomCurrentDistance = 0;
@@ -492,106 +492,6 @@ export default class ImageViewer extends React.Component<Props, State> {
     });
   }
 
-  private decayScroll = (gestureState: PanResponderGestureState) => {
-    if (this.scale == 1) {
-      return;
-    }
-    const verticalMax = this.calculateScrollContent(false);
-    const horizontalMax = this.calculateScrollContent(true);
-    Animated.parallel(
-      [
-        Animated.decay(this.animatedPositionX, {
-          velocity: gestureState.vx
-        }),
-        Animated.decay(this.animatedPositionY, {
-          velocity: gestureState.vy
-        })
-      ],
-      { stopTogether: true }
-    ).start(() => {
-      this.stopAnimationAndRemoveListener(true, true);
-    });
-
-    this.animatedPositionX.addListener(state => {
-      this.positionX = state.value;
-      if (state.value > horizontalMax) {
-        this.stopDecayAnimate(horizontalMax, true);
-      } else if (state.value < -horizontalMax) {
-        this.stopDecayAnimate(-horizontalMax, true);
-      }
-    });
-
-    this.animatedPositionY.addListener(state => {
-      this.positionY = state.value;
-      if (state.value > verticalMax) {
-        this.stopDecayAnimate(verticalMax, false);
-      } else if (state.value < -verticalMax) {
-        this.stopDecayAnimate(-verticalMax, false);
-      }
-    });
-  };
-
-  private stopDecayAnimate = (position: number, horizontal: boolean) => {
-    this.stopAnimationAndRemoveListener(horizontal, !horizontal);
-    let p = position > 0  ? position - 5 : position + 5
-    if (horizontal) {
-      this.positionX = p;
-    } else {
-      this.positionY = p;
-    }
-    Animated.parallel(
-      [
-        Animated.spring(this.animatedPositionX, {
-          toValue: this.positionX
-        }),
-        Animated.spring(this.animatedPositionY, {
-          toValue: this.positionY
-        })
-      ],
-      { stopTogether: false }
-    ).start();
-  };
-
-  private calculateScrollContent = (horizontal: boolean): number => {
-    if (horizontal) {
-      return (
-        (this.props.imageWidth * this.scale -
-          this.props.cropWidth) /
-        2 /
-        this.scale
-      );
-    } else {
-      return (
-        (this.props.imageHeight * this.scale -
-          this.props.cropHeight) /
-        2 /
-        this.scale
-      );
-    }
-  }
-
-  private stopAnimationAndRemoveListener = (
-    horizontal: boolean = false,
-    vertical: boolean = false
-  ) => {
-    const removeX = () => {
-      this.animatedPositionX.stopAnimation();
-      this.animatedPositionX.removeAllListeners();
-    };
-    const removeY = () => {
-      this.animatedPositionY.stopAnimation();
-      this.animatedPositionY.removeAllListeners();
-    };
-    if (horizontal && !vertical) {
-      removeX();
-    } else if (!horizontal && vertical) {
-      removeY();
-    } else {
-      removeX();
-      removeY();
-    }
-  }
-
   public resetScale = () => {
     this.positionX = 0;
     this.positionY = 0;
@@ -841,5 +741,105 @@ export default class ImageViewer extends React.Component<Props, State> {
         </Animated.View>
       </View>
     );
+  }
+
+  private decayScroll = (gestureState: PanResponderGestureState) => {
+    if (this.scale === 1) {
+      return;
+    }
+    const verticalMax = this.calculateScrollContent(false);
+    const horizontalMax = this.calculateScrollContent(true);
+    Animated.parallel(
+      [
+        Animated.decay(this.animatedPositionX, {
+          velocity: gestureState.vx
+        }),
+        Animated.decay(this.animatedPositionY, {
+          velocity: gestureState.vy
+        })
+      ],
+      { stopTogether: true }
+    ).start(() => {
+      this.stopAnimationAndRemoveListener(true, true);
+    });
+
+    this.animatedPositionX.addListener(state => {
+      this.positionX = state.value;
+      if (state.value > horizontalMax) {
+        this.stopDecayAnimate(horizontalMax, true);
+      } else if (state.value < -horizontalMax) {
+        this.stopDecayAnimate(-horizontalMax, true);
+      }
+    });
+
+    this.animatedPositionY.addListener(state => {
+      this.positionY = state.value;
+      if (state.value > verticalMax) {
+        this.stopDecayAnimate(verticalMax, false);
+      } else if (state.value < -verticalMax) {
+        this.stopDecayAnimate(-verticalMax, false);
+      }
+    });
+  };
+
+  private stopDecayAnimate = (position: number, horizontal: boolean) => {
+    this.stopAnimationAndRemoveListener(horizontal, !horizontal);
+    const p = position > 0  ? position - 5 : position + 5
+    if (horizontal) {
+      this.positionX = p;
+    } else {
+      this.positionY = p;
+    }
+    Animated.parallel(
+      [
+        Animated.spring(this.animatedPositionX, {
+          toValue: this.positionX
+        }),
+        Animated.spring(this.animatedPositionY, {
+          toValue: this.positionY
+        })
+      ],
+      { stopTogether: false }
+    ).start();
+  };
+
+  private calculateScrollContent = (horizontal: boolean): number => {
+    if (horizontal) {
+      return (
+        (this.props.imageWidth * this.scale -
+          this.props.cropWidth) /
+        2 /
+        this.scale
+      );
+    } else {
+      return (
+        (this.props.imageHeight * this.scale -
+          this.props.cropHeight) /
+        2 /
+        this.scale
+      );
+    }
+  }
+
+  private stopAnimationAndRemoveListener = (
+    horizontal: boolean = false,
+    vertical: boolean = false
+  ) => {
+    const removeX = () => {
+      this.animatedPositionX.stopAnimation();
+      this.animatedPositionX.removeAllListeners();
+    };
+    const removeY = () => {
+      this.animatedPositionY.stopAnimation();
+      this.animatedPositionY.removeAllListeners();
+    };
+    if (horizontal && !vertical) {
+      removeX();
+    } else if (!horizontal && vertical) {
+      removeY();
+    } else {
+      removeX();
+      removeY();
+    }
   }
 }
