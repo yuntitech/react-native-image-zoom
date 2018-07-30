@@ -27,15 +27,15 @@ export default class ImageViewer extends React.Component<Props, State> {
   public state = new State();
    // 缩放大小
   public scale = 1;
+  public positionX = 0;
+  public positionY = 0;
 
   // 上次/当前/动画 x 位移
   private lastPositionX: number | null = null;
-  private positionX = 0;
   private animatedPositionX = new Animated.Value(0);
 
   // 上次/当前/动画 y 位移
   private lastPositionY: number | null = null;
-  private positionY = 0;
   private animatedPositionY = new Animated.Value(0);
 
   private animatedScale = new Animated.Value(1);
@@ -99,7 +99,7 @@ export default class ImageViewer extends React.Component<Props, State> {
           return false
         }
       },
-
+    
       onPanResponderGrant: evt => {
         // 开始手势操作
         this.lastPositionX = null;
@@ -481,7 +481,7 @@ export default class ImageViewer extends React.Component<Props, State> {
             this.props.responderRelease(gestureState.vx, this.scale);
           }
           this.panResponderReleaseResolve(); 
-          if (this.props.useDecayScroll) {
+          if (this.props.useDecayScroll && evt.nativeEvent.changedTouches.length === 1) {
             this.decayScroll(gestureState)
           }
         }
@@ -743,6 +743,24 @@ export default class ImageViewer extends React.Component<Props, State> {
     );
   }
 
+  public calculateScrollContent = (horizontal: boolean): number => {
+    if (horizontal) {
+      return (
+        (this.props.imageWidth * this.scale -
+          this.props.cropWidth) /
+        2 /
+        this.scale
+      );
+    } else {
+      return (
+        (this.props.imageHeight * this.scale -
+          this.props.cropHeight) /
+        2 /
+        this.scale
+      );
+    }
+  }
+
   private decayScroll = (gestureState: PanResponderGestureState) => {
     if (this.scale === 1) {
       return;
@@ -758,25 +776,25 @@ export default class ImageViewer extends React.Component<Props, State> {
           velocity: gestureState.vy
         })
       ],
-      { stopTogether: true }
+      { stopTogether: false }
     ).start(() => {
       this.stopAnimationAndRemoveListener(true, true);
     });
 
     this.animatedPositionX.addListener(state => {
       this.positionX = state.value;
-      if (state.value > horizontalMax) {
+      if (state.value >= horizontalMax) {
         this.stopDecayAnimate(horizontalMax, true);
-      } else if (state.value < -horizontalMax) {
+      } else if (state.value <= -horizontalMax) {
         this.stopDecayAnimate(-horizontalMax, true);
       }
     });
 
     this.animatedPositionY.addListener(state => {
       this.positionY = state.value;
-      if (state.value > verticalMax) {
+      if (state.value >= verticalMax) {
         this.stopDecayAnimate(verticalMax, false);
-      } else if (state.value < -verticalMax) {
+      } else if (state.value <= -verticalMax) {
         this.stopDecayAnimate(-verticalMax, false);
       }
     });
@@ -784,7 +802,17 @@ export default class ImageViewer extends React.Component<Props, State> {
 
   private stopDecayAnimate = (position: number, horizontal: boolean) => {
     this.stopAnimationAndRemoveListener(horizontal, !horizontal);
-    const p = position > 0  ? position - 5 : position + 5
+    if (horizontal) {
+      if (this.props.onReleaseReachHorizonEdge) {
+        this.props.onReleaseReachHorizonEdge(position > 0)
+      }
+    } else {
+      if (this.props.onReleaseReachVerticalEdge) {
+        this.props.onReleaseReachVerticalEdge(position > 0)
+      }
+    }
+    
+    const p = position > 0  ? position - this.props.edgeMargin : position + this.props.edgeMargin 
     if (horizontal) {
       this.positionX = p;
     } else {
@@ -802,24 +830,6 @@ export default class ImageViewer extends React.Component<Props, State> {
       { stopTogether: false }
     ).start();
   };
-
-  private calculateScrollContent = (horizontal: boolean): number => {
-    if (horizontal) {
-      return (
-        (this.props.imageWidth * this.scale -
-          this.props.cropWidth) /
-        2 /
-        this.scale
-      );
-    } else {
-      return (
-        (this.props.imageHeight * this.scale -
-          this.props.cropHeight) /
-        2 /
-        this.scale
-      );
-    }
-  }
 
   private stopAnimationAndRemoveListener = (
     horizontal: boolean = false,

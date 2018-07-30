@@ -114,6 +114,16 @@ export class Props {
   public useDecayScroll: boolean = false
 
   /**
+   * 释放手指滑动到边缘回调的距离
+   */
+  public edgeMargin: number = 0
+
+  public onReleaseReachHorizonEdge?: (left: boolean) => void = () => {}
+
+  public onReleaseReachVerticalEdge?: (top: boolean) => void = () => {}
+
+
+  /**
    * 单击的回调
    */
   public onClick?: () => void = () => {
@@ -176,7 +186,7 @@ export class Props {
   public onSwipeDown?: () => void = () => {
     //
   };
-
+  
 }
 
 export class State {
