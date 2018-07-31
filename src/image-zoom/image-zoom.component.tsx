@@ -776,25 +776,25 @@ export default class ImageViewer extends React.Component<Props, State> {
           velocity: gestureState.vy
         })
       ],
-      { stopTogether: false }
+      { stopTogether: true }
     ).start(() => {
       this.stopAnimationAndRemoveListener(true, true);
     });
 
     this.animatedPositionX.addListener(state => {
       this.positionX = state.value;
-      if (state.value >= horizontalMax) {
+      if (state.value >= horizontalMax + this.props.edgeMargin) {
         this.stopDecayAnimate(horizontalMax, true);
-      } else if (state.value <= -horizontalMax) {
+      } else if (state.value <= -(horizontalMax + this.props.edgeMargin)) {
         this.stopDecayAnimate(-horizontalMax, true);
       }
     });
 
     this.animatedPositionY.addListener(state => {
       this.positionY = state.value;
-      if (state.value >= verticalMax) {
+      if (state.value >= (verticalMax + this.props.edgeMargin)) {
         this.stopDecayAnimate(verticalMax, false);
-      } else if (state.value <= -verticalMax) {
+      } else if (state.value <= -(verticalMax + this.props.edgeMargin)) {
         this.stopDecayAnimate(-verticalMax, false);
       }
     });
@@ -812,11 +812,11 @@ export default class ImageViewer extends React.Component<Props, State> {
       }
     }
     
-    const p = position > 0  ? position - this.props.edgeMargin : position + this.props.edgeMargin 
+    // const p = position > 0  ? position - this.props.edgeMargin : position + this.props.edgeMargin 
     if (horizontal) {
-      this.positionX = p;
+      this.positionX = position;
     } else {
-      this.positionY = p;
+      this.positionY = position;
     }
     Animated.parallel(
       [
